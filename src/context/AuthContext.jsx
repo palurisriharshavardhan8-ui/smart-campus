@@ -37,6 +37,19 @@ export function AuthProvider({ children }) {
                     'students';
         await setDoc(doc(db, collectionName, uid), userData);
 
+        // If registering as class teacher, also upsert the `classes` collection
+        // so student complaint routing can find this teacher immediately
+        if (role === 'classTeacher' && extra.className) {
+            await setDoc(doc(db, 'classes', extra.className), {
+                className: extra.className,
+                branch: extra.branch || '',
+                section: extra.section || '',
+                teacherId: uid,
+                teacherName: name,
+                updatedAt: serverTimestamp(),
+            }, { merge: true });
+        }
+
         return result;
     }
 

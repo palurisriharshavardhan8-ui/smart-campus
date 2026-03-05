@@ -54,6 +54,9 @@ import ManageNotes from './pages/admin/ManageNotes';
 import StudentList from './pages/admin/StudentList';
 import TeacherDashboard from './pages/teacher/TeacherDashboard';
 import TeacherComplaints from './pages/teacher/TeacherComplaints';
+import TeacherNotes from './pages/teacher/TeacherNotes';
+import TeacherAnnouncements from './pages/teacher/TeacherAnnouncements';
+import SuperAdminDashboard from './pages/superadmin/SuperAdminDashboard';
 
 function LoadingScreen() {
     return (
@@ -77,15 +80,18 @@ function StudentRoute({ children }) {
     if (loading) return <LoadingScreen />;
     if (!currentUser) return <Navigate to="/login" replace />;
     if (userRole === 'admin') return <Navigate to="/admin" replace />;
+    if (userRole === 'superAdmin') return <Navigate to="/superadmin" replace />;
     if (userRole === 'classTeacher') return <Navigate to="/teacher" replace />;
     return children;
 }
 
-// Protected route for admins
+// Protected route for admins — also lets superAdmin through
 function AdminRoute({ children }) {
     const { currentUser, userRole, loading } = useAuth();
     if (loading) return <LoadingScreen />;
     if (!currentUser) return <Navigate to="/login" replace />;
+    // superAdmin gets full access to all admin pages
+    if (userRole === 'superAdmin') return children;
     if (userRole === 'student') return <Navigate to="/student" replace />;
     if (userRole === 'classTeacher') return <Navigate to="/teacher" replace />;
     return children;
@@ -98,6 +104,16 @@ function TeacherRoute({ children }) {
     if (!currentUser) return <Navigate to="/login" replace />;
     if (userRole === 'student') return <Navigate to="/student" replace />;
     if (userRole === 'admin') return <Navigate to="/admin" replace />;
+    if (userRole === 'superAdmin') return <Navigate to="/superadmin" replace />;
+    return children;
+}
+
+// Protected route for super admin
+function SuperAdminRoute({ children }) {
+    const { currentUser, userRole, loading } = useAuth();
+    if (loading) return <LoadingScreen />;
+    if (!currentUser) return <Navigate to="/login" replace />;
+    if (userRole !== 'superAdmin') return <Navigate to="/" replace />;
     return children;
 }
 
@@ -110,11 +126,10 @@ function AppRoutes() {
                 path="/"
                 element={
                     currentUser
-                        ? userRole === 'admin'
-                            ? <Navigate to="/admin" replace />
-                            : userRole === 'classTeacher'
-                                ? <Navigate to="/teacher" replace />
-                                : <Navigate to="/student" replace />
+                        ? userRole === 'superAdmin' ? <Navigate to="/superadmin" replace />
+                            : userRole === 'admin' ? <Navigate to="/admin" replace />
+                                : userRole === 'classTeacher' ? <Navigate to="/teacher" replace />
+                                    : <Navigate to="/student" replace />
                         : <Navigate to="/login" replace />
                 }
             />
@@ -130,6 +145,8 @@ function AppRoutes() {
             {/* Teacher Routes */}
             <Route path="/teacher" element={<TeacherRoute><TeacherDashboard /></TeacherRoute>} />
             <Route path="/teacher/complaints" element={<TeacherRoute><TeacherComplaints /></TeacherRoute>} />
+            <Route path="/teacher/notes" element={<TeacherRoute><TeacherNotes /></TeacherRoute>} />
+            <Route path="/teacher/announcements" element={<TeacherRoute><TeacherAnnouncements /></TeacherRoute>} />
 
             {/* Admin Routes */}
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
@@ -137,6 +154,9 @@ function AppRoutes() {
             <Route path="/admin/announcements" element={<AdminRoute><ManageAnnouncements /></AdminRoute>} />
             <Route path="/admin/notes" element={<AdminRoute><ManageNotes /></AdminRoute>} />
             <Route path="/admin/students" element={<AdminRoute><StudentList /></AdminRoute>} />
+
+            {/* Super Admin Routes */}
+            <Route path="/superadmin" element={<SuperAdminRoute><SuperAdminDashboard /></SuperAdminRoute>} />
 
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/" replace />} />

@@ -17,6 +17,8 @@ const STATUS_BADGE = {
     under_review: 'badge-inprogress',
     'in-progress': 'badge-inprogress',
     forwarded: 'bg-violet-100 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400',
+    pending_confirmation: 'bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400',
+    student_confirmed: 'bg-teal-100 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400',
     resolved: 'badge-resolved',
 };
 
@@ -27,21 +29,18 @@ export default function ManageComplaints() {
     const [catFilter, setCatFilter] = useState('All');
     const [statusFilter, setStatusFilter] = useState('all');
 
-    /* ── Real-time listener (dept-filtered for dept admins) ── */
+    /* ── Real-time listener (dept-filtered for dept admins, client-side sort) ── */
     useEffect(() => {
-        let q;
-        if (userProfile?.department) {
-            q = query(
-                collection(db, 'complaints'),
-                where('adminDepartment', '==', userProfile.department),
-                orderBy('createdAt', 'desc'),
-            );
-        } else {
-            q = query(collection(db, 'complaints'), orderBy('createdAt', 'desc'));
-        }
-        return onSnapshot(q, snap =>
-            setComplaints(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
-        );
+        if (!userProfile) return;
+        // Use single-field query only — composite index not needed
+        const q = userProfile?.department
+            ? query(collection(db, 'complaints'), where('adminDepartment', '==', userProfile.department))
+            : query(collection(db, 'complaints'));
+        return onSnapshot(q, snap => {
+            const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            docs.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
+            setComplaints(docs);
+        }, err => console.error('complaints listener:', err));
     }, [userProfile]);
 
     /* ── Status update with tracking entry ── */
@@ -50,13 +49,15 @@ export default function ManageComplaints() {
             submitted: 'Submitted',
             under_review: 'Under Review',
             forwarded: 'Forwarded',
+            pending_confirmation: 'Pending Confirmation',
             resolved: 'Resolved',
         };
         const MSG_MAP = {
             submitted: 'Status reset to submitted',
             under_review: 'Admin marked as under review',
             forwarded: 'Forwarded to department admin',
-            resolved: `Complaint resolved by ${userProfile?.name || 'Admin'}`,
+            pending_confirmation: `Marked resolved by ${userProfile?.name || 'Admin'} — Awaiting student confirmation`,
+            resolved: `Confirmed resolved by ${userProfile?.name || 'Admin'}`,
         };
 
         const entry = {
@@ -68,14 +69,14 @@ export default function ManageComplaints() {
         try {
             await updateDoc(doc(db, 'complaints', complaint.id), {
                 status: newStatus,
-                assignedTo: newStatus === 'resolved' ? 'resolved' : (userProfile?.department ? `${userProfile.department}Admin` : 'admin'),
+                assignedTo: newStatus === 'pending_confirmation' ? 'student'
+                    : newStatus === 'resolved' ? 'resolved'
+                        : userProfile?.department ? `${userProfile.department}Admin` : 'admin',
                 updatedAt: serverTimestamp(),
                 trackingHistory: arrayUnion(entry),
             });
             toast.success(`Status → ${newStatus.replace(/_/g, ' ')}`);
-        } catch {
-            toast.error('Update failed');
-        }
+        } catch { toast.error('Update failed'); }
     }
 
     const CATEGORIES = ['All', 'infrastructure', 'hostel', 'transport', 'academic'];
@@ -158,7 +159,8 @@ export default function ManageComplaints() {
                                         <option value="submitted">Submitted</option>
                                         <option value="under_review">Under Review</option>
                                         <option value="forwarded">Forwarded</option>
-                                        <option value="resolved">✓ Resolved</option>
+                                        <option value="pending_confirmation">⏳ Await Confirmation</option>
+                                        <option value="resolved" disabled={c.status !== 'pending_confirmation'}>✓ Resolved (by student)</option>
                                     </select>
                                 </div>
                             </div>

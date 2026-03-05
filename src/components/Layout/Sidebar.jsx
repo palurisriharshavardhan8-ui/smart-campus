@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
     LayoutDashboard, MessageSquare, Megaphone, BookOpen,
     Users, ClipboardList, LogOut, GraduationCap,
-    ChevronLeft, ChevronRight,
+    ChevronLeft, ChevronRight, ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -27,18 +27,30 @@ const adminLinks = [
 const teacherLinks = [
     { to: '/teacher', icon: LayoutDashboard, label: 'Dashboard', end: true },
     { to: '/teacher/complaints', icon: ClipboardList, label: 'Class Complaints' },
+    { to: '/teacher/notes', icon: BookOpen, label: 'Class Notes' },
+    { to: '/teacher/announcements', icon: Megaphone, label: 'Announcements' },
+];
+
+const superAdminLinks = [
+    { to: '/superadmin', icon: ShieldCheck, label: 'Overview', end: true },
+    { to: '/admin/complaints', icon: ClipboardList, label: 'All Complaints' },
+    { to: '/admin/announcements', icon: Megaphone, label: 'Announcements' },
+    { to: '/admin/notes', icon: BookOpen, label: 'Notes' },
+    { to: '/admin/students', icon: Users, label: 'Students' },
 ];
 
 const LINKS_BY_ROLE = {
     student: studentLinks,
     admin: adminLinks,
     classTeacher: teacherLinks,
+    superAdmin: superAdminLinks,
 };
 
 const ROLE_LABEL = {
     student: 'Student Portal',
     admin: 'Admin Portal',
     classTeacher: 'Teacher Portal',
+    superAdmin: 'Head Admin Portal',
 };
 
 export default function Sidebar({ role }) {

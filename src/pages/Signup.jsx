@@ -273,7 +273,12 @@ function AdminForm({ onSubmit, loading }) {
         const dept = validateAdminCode(adminCode);
         if (!dept) return toast.error('Invalid Admin Code. Contact your super-admin.');
         if (!collegeId.trim()) return toast.error('Enter your College ID');
-        onSubmit({ name: name.trim(), email, password, role: 'admin', department: dept, collegeId: collegeId.trim() });
+        // If dept === 'superAdmin', create a Head Admin account
+        const role = dept === 'superAdmin' ? 'superAdmin' : 'admin';
+        const payload = dept === 'superAdmin'
+            ? { name: name.trim(), email, password, role, collegeId: collegeId.trim() }
+            : { name: name.trim(), email, password, role, department: dept, collegeId: collegeId.trim() };
+        onSubmit(payload);
     }
 
     return (

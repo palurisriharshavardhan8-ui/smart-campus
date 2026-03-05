@@ -17,6 +17,7 @@ const STATUS_BADGE = {
     under_review: 'badge-inprogress',
     'in-progress': 'badge-inprogress',
     forwarded: 'bg-violet-100 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400',
+    pending_confirmation: 'bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400',
     resolved: 'badge-resolved',
 };
 
@@ -29,14 +30,16 @@ export default function TeacherComplaints() {
 
     useEffect(() => {
         if (!currentUser) return;
+        // Single-field query only — no composite index needed; sort client-side
         const q = query(
             collection(db, 'complaints'),
             where('classTeacherId', '==', currentUser.uid),
-            orderBy('createdAt', 'desc'),
         );
-        return onSnapshot(q, snap =>
-            setComplaints(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
-        );
+        return onSnapshot(q, snap => {
+            const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            docs.sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0));
+            setComplaints(docs);
+        }, err => console.error('TeacherComplaints:', err));
     }, [currentUser]);
 
     async function changeStatus(complaint, newStatus) {

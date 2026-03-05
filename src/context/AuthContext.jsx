@@ -27,18 +27,18 @@ export function AuthProvider({ children }) {
         const base = { uid, name, email, role, createdAt: serverTimestamp() };
         const userData = { ...base, ...extra };
 
-        // Write to universal `users` collection
+        // Universal users collection
         await setDoc(doc(db, 'users', uid), userData);
 
-        // Write to role-specific collection for role-lookup in onAuthStateChanged
+        // Role-specific collection
         const collectionName =
-            role === 'admin' ? 'admins' :
-                role === 'classTeacher' ? 'classTeachers' :
-                    'students';
+            role === 'superAdmin' ? 'admins' :        // super admin lives in admins
+                role === 'admin' ? 'admins' :
+                    role === 'classTeacher' ? 'classTeachers' :
+                        'students';
         await setDoc(doc(db, collectionName, uid), userData);
 
-        // If registering as class teacher, also upsert the `classes` collection
-        // so student complaint routing can find this teacher immediately
+        // Teacher: also update classes collection for routing
         if (role === 'classTeacher' && extra.className) {
             await setDoc(doc(db, 'classes', extra.className), {
                 className: extra.className,
@@ -68,20 +68,23 @@ export function AuthProvider({ children }) {
             setCurrentUser(user);
             if (user) {
                 try {
-                    // Check students → admins → classTeachers
                     let profile = null;
                     let role = null;
 
+                    // Check students first
                     const studentSnap = await getDoc(doc(db, 'students', user.uid));
                     if (studentSnap.exists()) {
                         profile = studentSnap.data();
-                        role = profile.role || 'student';
+                        role = 'student';
                     } else {
+                        // Check admins (includes superAdmin)
                         const adminSnap = await getDoc(doc(db, 'admins', user.uid));
                         if (adminSnap.exists()) {
                             profile = adminSnap.data();
-                            role = 'admin';
+                            // Use stored role so superAdmin is preserved
+                            role = profile.role === 'superAdmin' ? 'superAdmin' : 'admin';
                         } else {
+                            // Check class teachers
                             const teacherSnap = await getDoc(doc(db, 'classTeachers', user.uid));
                             if (teacherSnap.exists()) {
                                 profile = teacherSnap.data();

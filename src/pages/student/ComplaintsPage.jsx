@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { MessageSquare, Plus } from 'lucide-react';
 import {
-    collection, addDoc, serverTimestamp, onSnapshot,
-    query, where, orderBy, getDocs, Timestamp,
+    addDoc, collection, query, where, onSnapshot, serverTimestamp,
+    Timestamp, getDocs, updateDoc, doc, arrayUnion,
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useAuth } from '../../context/AuthContext';
@@ -51,6 +51,41 @@ export default function StudentComplaints() {
             setComplaints(docs);
         }, err => console.error('Complaints query error:', err));
     }, [currentUser]);
+
+    /* ── Student confirms resolution ── */
+    async function confirmResolved(c) {
+        const entry = {
+            stage: 'Resolved',
+            actor: userProfile?.name || 'Student',
+            message: 'Student confirmed complaint is resolved',
+            timestamp: Timestamp.now(),
+        };
+        try {
+            await updateDoc(doc(db, 'complaints', c.id), {
+                status: 'resolved', assignedTo: 'resolved',
+                resolvedAt: serverTimestamp(),
+                trackingHistory: arrayUnion(entry),
+            });
+            toast.success('✅ Complaint confirmed as resolved!');
+        } catch { toast.error('Failed to confirm'); }
+    }
+
+    /* ── Student raises complaint again ── */
+    async function raiseAgain(c) {
+        const entry = {
+            stage: 'Reopened',
+            actor: userProfile?.name || 'Student',
+            message: 'Student rejected resolution — complaint reopened',
+            timestamp: Timestamp.now(),
+        };
+        try {
+            await updateDoc(doc(db, 'complaints', c.id), {
+                status: 'forwarded', assignedTo: 'deptAdmin',
+                trackingHistory: arrayUnion(entry),
+            });
+            toast.success('Complaint forwarded back to dept admin');
+        } catch { toast.error('Failed to reopen complaint'); }
+    }
 
     /* ── New complaint submit ── */
     async function handleSubmit(e) {
@@ -194,13 +229,13 @@ export default function StudentComplaints() {
 
                 {/* Filter tabs */}
                 <div className="flex items-center gap-2 mb-4 flex-wrap">
-                    {['all', 'submitted', 'under_review', 'forwarded', 'resolved'].map(s => (
+                    {['all', 'submitted', 'under_review', 'forwarded', 'pending_confirmation', 'resolved'].map(s => (
                         <button key={s} onClick={() => setFilter(s)}
-                            className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all capitalize ${filter === s
-                                ? 'bg-primary-600 text-white shadow-sm'
-                                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
-                                }`}>
-                            {s === 'all' ? `All (${complaints.length})` : s.replace('_', ' ')}
+                            className={`px - 4 py - 1.5 rounded - full text - sm font - medium transition - all capitalize ${filter === s
+                                    ? 'bg-primary-600 text-white shadow-sm'
+                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                                } `}>
+                            {s === 'all' ? `All(${complaints.length})` : s.replace(/_/g, ' ')}
                         </button>
                     ))}
                 </div>
@@ -220,7 +255,7 @@ export default function StudentComplaints() {
                             <motion.div key={c.id}
                                 initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: i * 0.05 }}
-                                className="card hover:shadow-md transition-shadow"
+                                className={`card hover: shadow - md transition - shadow ${c.status === 'pending_confirmation' ? 'border-2 border-orange-300 dark:border-orange-700' : ''} `}
                             >
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="flex-1 min-w-0">
@@ -238,6 +273,28 @@ export default function StudentComplaints() {
                                         <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 line-clamp-2">{c.description}</p>
                                     </div>
                                 </div>
+
+                                {/* Student Confirmation Banner */}
+                                {c.status === 'pending_confirmation' && (
+                                    <div className="mt-4 p-4 rounded-xl bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
+                                        <p className="text-sm font-semibold text-orange-700 dark:text-orange-400 mb-1">🔔 Action Required</p>
+                                        <p className="text-xs text-orange-600 dark:text-orange-300 mb-3">
+                                            The department admin has marked this complaint as resolved.
+                                            Please confirm if your issue is truly resolved, or raise it again if not.
+                                        </p>
+                                        <div className="flex gap-2">
+                                            <button onClick={() => confirmResolved(c)}
+                                                className="flex-1 py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition-colors">
+                                                ✅ Yes, Resolved!
+                                            </button>
+                                            <button onClick={() => raiseAgain(c)}
+                                                className="flex-1 py-2 px-3 rounded-lg bg-red-100 dark:bg-red-900/20 hover:bg-red-200 text-red-600 dark:text-red-400 text-xs font-semibold transition-colors">
+                                                ❌ Not Resolved — Raise Again
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Progress tracker + timeline */}
                                 <ComplaintProgressTracker
                                     status={c.status}

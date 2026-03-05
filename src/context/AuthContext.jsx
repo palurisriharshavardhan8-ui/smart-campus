@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import {
+    createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
     signOut,
     onAuthStateChanged,
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
 const AuthContext = createContext(null);
@@ -19,9 +20,28 @@ export function AuthProvider({ children }) {
     const [userProfile, setUserProfile] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    async function login(email, password) {
-        const result = await signInWithEmailAndPassword(auth, email, password);
+    async function signup({ name, email, password, role, ...extra }) {
+        const result = await createUserWithEmailAndPassword(auth, email, password);
+        const { uid } = result.user;
+
+        const base = { uid, name, email, role, createdAt: serverTimestamp() };
+        const userData = { ...base, ...extra };
+
+        // Write to universal `users` collection
+        await setDoc(doc(db, 'users', uid), userData);
+
+        // Write to role-specific collection for role-lookup in onAuthStateChanged
+        const collectionName =
+            role === 'admin' ? 'admins' :
+                role === 'classTeacher' ? 'classTeachers' :
+                    'students';
+        await setDoc(doc(db, collectionName, uid), userData);
+
         return result;
+    }
+
+    async function login(email, password) {
+        return await signInWithEmailAndPassword(auth, email, password);
     }
 
     async function logout() {
@@ -35,21 +55,30 @@ export function AuthProvider({ children }) {
             setCurrentUser(user);
             if (user) {
                 try {
-                    const docRef = doc(db, 'students', user.uid);
-                    const docSnap = await getDoc(docRef);
-                    if (docSnap.exists()) {
-                        const data = docSnap.data();
-                        setUserRole(data.role);
-                        setUserProfile(data);
+                    // Check students → admins → classTeachers
+                    let profile = null;
+                    let role = null;
+
+                    const studentSnap = await getDoc(doc(db, 'students', user.uid));
+                    if (studentSnap.exists()) {
+                        profile = studentSnap.data();
+                        role = profile.role || 'student';
                     } else {
-                        // Check admins collection
-                        const adminRef = doc(db, 'admins', user.uid);
-                        const adminSnap = await getDoc(adminRef);
+                        const adminSnap = await getDoc(doc(db, 'admins', user.uid));
                         if (adminSnap.exists()) {
-                            setUserRole('admin');
-                            setUserProfile(adminSnap.data());
+                            profile = adminSnap.data();
+                            role = 'admin';
+                        } else {
+                            const teacherSnap = await getDoc(doc(db, 'classTeachers', user.uid));
+                            if (teacherSnap.exists()) {
+                                profile = teacherSnap.data();
+                                role = 'classTeacher';
+                            }
                         }
                     }
+
+                    setUserRole(role);
+                    setUserProfile(profile);
                 } catch (err) {
                     console.error('Error fetching user profile:', err);
                 }
@@ -59,18 +88,10 @@ export function AuthProvider({ children }) {
             }
             setLoading(false);
         });
-
         return unsubscribe;
     }, []);
 
-    const value = {
-        currentUser,
-        userRole,
-        userProfile,
-        loading,
-        login,
-        logout,
-    };
+    const value = { currentUser, userRole, userProfile, loading, signup, login, logout };
 
     if (loading) {
         return (

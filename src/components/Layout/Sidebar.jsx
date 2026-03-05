@@ -3,8 +3,8 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     LayoutDashboard, MessageSquare, Megaphone, BookOpen,
-    Users, ClipboardList, Settings, LogOut, GraduationCap,
-    ChevronLeft, ChevronRight, Bell, Home,
+    Users, ClipboardList, LogOut, GraduationCap,
+    ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import toast from 'react-hot-toast';
@@ -24,19 +24,36 @@ const adminLinks = [
     { to: '/admin/students', icon: Users, label: 'Students' },
 ];
 
+const teacherLinks = [
+    { to: '/teacher', icon: LayoutDashboard, label: 'Dashboard', end: true },
+    { to: '/teacher/complaints', icon: ClipboardList, label: 'Class Complaints' },
+];
+
+const LINKS_BY_ROLE = {
+    student: studentLinks,
+    admin: adminLinks,
+    classTeacher: teacherLinks,
+};
+
+const ROLE_LABEL = {
+    student: 'Student Portal',
+    admin: 'Admin Portal',
+    classTeacher: 'Teacher Portal',
+};
+
 export default function Sidebar({ role }) {
     const [collapsed, setCollapsed] = useState(false);
     const { logout, userProfile } = useAuth();
     const navigate = useNavigate();
 
-    const links = role === 'admin' ? adminLinks : studentLinks;
+    const links = LINKS_BY_ROLE[role] || studentLinks;
 
     async function handleLogout() {
         try {
             await logout();
             navigate('/login');
             toast.success('Logged out successfully');
-        } catch (err) {
+        } catch {
             toast.error('Failed to log out');
         }
     }
@@ -55,14 +72,12 @@ export default function Sidebar({ role }) {
                 <AnimatePresence>
                     {!collapsed && (
                         <motion.div
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: -10 }}
-                            transition={{ duration: 0.2 }}
+                            initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.2 }}
                             className="overflow-hidden"
                         >
                             <p className="font-bold text-gray-900 dark:text-white text-sm leading-tight">SmartCampus</p>
-                            <p className="text-xs text-gray-400 dark:text-gray-500 capitalize">{role} Portal</p>
+                            <p className="text-xs text-gray-400 dark:text-gray-500">{ROLE_LABEL[role] || 'Portal'}</p>
                         </motion.div>
                     )}
                 </AnimatePresence>
@@ -72,22 +87,13 @@ export default function Sidebar({ role }) {
             <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
                 {links.map(({ to, icon: Icon, label, end }) => (
                     <NavLink
-                        key={to}
-                        to={to}
-                        end={end}
-                        className={({ isActive }) =>
-                            `sidebar-link ${isActive ? 'active' : ''}`
-                        }
+                        key={to} to={to} end={end}
+                        className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
                     >
                         <Icon className="w-5 h-5 flex-shrink-0" />
                         <AnimatePresence>
                             {!collapsed && (
-                                <motion.span
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
-                                    className="truncate"
-                                >
+                                <motion.span initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="truncate">
                                     {label}
                                 </motion.span>
                             )}
@@ -96,7 +102,7 @@ export default function Sidebar({ role }) {
                 ))}
             </nav>
 
-            {/* User Profile */}
+            {/* User Profile & Logout */}
             <div className="p-3 border-t border-gray-100 dark:border-gray-800 space-y-1">
                 <button
                     onClick={handleLogout}
@@ -132,8 +138,7 @@ export default function Sidebar({ role }) {
             >
                 {collapsed
                     ? <ChevronRight className="w-3 h-3 text-gray-500" />
-                    : <ChevronLeft className="w-3 h-3 text-gray-500" />
-                }
+                    : <ChevronLeft className="w-3 h-3 text-gray-500" />}
             </button>
         </motion.aside>
     );

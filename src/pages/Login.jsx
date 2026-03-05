@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { GraduationCap, Mail, Lock, Eye, EyeOff, Loader2, Users, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -218,6 +218,17 @@ export default function Login() {
                                 {seeding ? 'Seeding data...' : 'Seed Demo Data to Firebase'}
                             </button>
                         </div>
+
+                        {/* Sign up link */}
+                        <p className="text-center text-sm text-gray-500 dark:text-gray-400 mt-4">
+                            Don&apos;t have an account?{' '}
+                            <Link
+                                to="/signup"
+                                className="font-semibold text-primary-600 dark:text-primary-400 hover:underline"
+                            >
+                                Sign Up
+                            </Link>
+                        </p>
                     </div>
                 </motion.div>
             </div>

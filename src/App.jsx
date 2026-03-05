@@ -42,6 +42,7 @@ class ErrorBoundary extends Component {
 
 // Pages
 import Login from './pages/Login';
+import Signup from './pages/Signup';
 import StudentDashboard from './pages/student/StudentDashboard';
 import ComplaintsPage from './pages/student/ComplaintsPage';
 import AnnouncementsPage from './pages/student/AnnouncementsPage';
@@ -51,24 +52,8 @@ import ManageComplaints from './pages/admin/ManageComplaints';
 import ManageAnnouncements from './pages/admin/ManageAnnouncements';
 import ManageNotes from './pages/admin/ManageNotes';
 import StudentList from './pages/admin/StudentList';
-
-// Protected route for students
-function StudentRoute({ children }) {
-    const { currentUser, userRole, loading } = useAuth();
-    if (loading) return <LoadingScreen />;
-    if (!currentUser) return <Navigate to="/login" replace />;
-    if (userRole === 'admin') return <Navigate to="/admin" replace />;
-    return children;
-}
-
-// Protected route for admins
-function AdminRoute({ children }) {
-    const { currentUser, userRole, loading } = useAuth();
-    if (loading) return <LoadingScreen />;
-    if (!currentUser) return <Navigate to="/login" replace />;
-    if (userRole === 'student') return <Navigate to="/student" replace />;
-    return children;
-}
+import TeacherDashboard from './pages/teacher/TeacherDashboard';
+import TeacherComplaints from './pages/teacher/TeacherComplaints';
 
 function LoadingScreen() {
     return (
@@ -86,6 +71,36 @@ function LoadingScreen() {
     );
 }
 
+// Protected route for students
+function StudentRoute({ children }) {
+    const { currentUser, userRole, loading } = useAuth();
+    if (loading) return <LoadingScreen />;
+    if (!currentUser) return <Navigate to="/login" replace />;
+    if (userRole === 'admin') return <Navigate to="/admin" replace />;
+    if (userRole === 'classTeacher') return <Navigate to="/teacher" replace />;
+    return children;
+}
+
+// Protected route for admins
+function AdminRoute({ children }) {
+    const { currentUser, userRole, loading } = useAuth();
+    if (loading) return <LoadingScreen />;
+    if (!currentUser) return <Navigate to="/login" replace />;
+    if (userRole === 'student') return <Navigate to="/student" replace />;
+    if (userRole === 'classTeacher') return <Navigate to="/teacher" replace />;
+    return children;
+}
+
+// Protected route for class teachers
+function TeacherRoute({ children }) {
+    const { currentUser, userRole, loading } = useAuth();
+    if (loading) return <LoadingScreen />;
+    if (!currentUser) return <Navigate to="/login" replace />;
+    if (userRole === 'student') return <Navigate to="/student" replace />;
+    if (userRole === 'admin') return <Navigate to="/admin" replace />;
+    return children;
+}
+
 function AppRoutes() {
     const { currentUser, userRole } = useAuth();
 
@@ -95,17 +110,26 @@ function AppRoutes() {
                 path="/"
                 element={
                     currentUser
-                        ? userRole === 'admin' ? <Navigate to="/admin" replace /> : <Navigate to="/student" replace />
+                        ? userRole === 'admin'
+                            ? <Navigate to="/admin" replace />
+                            : userRole === 'classTeacher'
+                                ? <Navigate to="/teacher" replace />
+                                : <Navigate to="/student" replace />
                         : <Navigate to="/login" replace />
                 }
             />
             <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
 
             {/* Student Routes */}
             <Route path="/student" element={<StudentRoute><StudentDashboard /></StudentRoute>} />
             <Route path="/student/complaints" element={<StudentRoute><ComplaintsPage /></StudentRoute>} />
             <Route path="/student/announcements" element={<StudentRoute><AnnouncementsPage /></StudentRoute>} />
             <Route path="/student/notes" element={<StudentRoute><NotesHub /></StudentRoute>} />
+
+            {/* Teacher Routes */}
+            <Route path="/teacher" element={<TeacherRoute><TeacherDashboard /></TeacherRoute>} />
+            <Route path="/teacher/complaints" element={<TeacherRoute><TeacherComplaints /></TeacherRoute>} />
 
             {/* Admin Routes */}
             <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
@@ -131,11 +155,7 @@ export default function App() {
                             position="top-right"
                             toastOptions={{
                                 duration: 3000,
-                                style: {
-                                    borderRadius: '12px',
-                                    fontSize: '13px',
-                                    fontWeight: 500,
-                                },
+                                style: { borderRadius: '12px', fontSize: '13px', fontWeight: 500 },
                             }}
                         />
                     </BrowserRouter>
